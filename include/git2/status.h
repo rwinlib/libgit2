@@ -43,8 +43,10 @@ typedef enum {
 	GIT_STATUS_WT_DELETED       = (1u << 9),
 	GIT_STATUS_WT_TYPECHANGE    = (1u << 10),
 	GIT_STATUS_WT_RENAMED       = (1u << 11),
+	GIT_STATUS_WT_UNREADABLE    = (1u << 12),
 
 	GIT_STATUS_IGNORED          = (1u << 14),
+	GIT_STATUS_CONFLICTED       = (1u << 15),
 } git_status_t;
 
 /**
@@ -133,20 +135,22 @@ typedef enum {
  * together as `GIT_STATUS_OPT_DEFAULTS` if you want them as a baseline.
  */
 typedef enum {
-	GIT_STATUS_OPT_INCLUDE_UNTRACKED        = (1u << 0),
-	GIT_STATUS_OPT_INCLUDE_IGNORED          = (1u << 1),
-	GIT_STATUS_OPT_INCLUDE_UNMODIFIED       = (1u << 2),
-	GIT_STATUS_OPT_EXCLUDE_SUBMODULES       = (1u << 3),
-	GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS   = (1u << 4),
-	GIT_STATUS_OPT_DISABLE_PATHSPEC_MATCH   = (1u << 5),
-	GIT_STATUS_OPT_RECURSE_IGNORED_DIRS     = (1u << 6),
-	GIT_STATUS_OPT_RENAMES_HEAD_TO_INDEX    = (1u << 7),
-	GIT_STATUS_OPT_RENAMES_INDEX_TO_WORKDIR = (1u << 8),
-	GIT_STATUS_OPT_SORT_CASE_SENSITIVELY    = (1u << 9),
-	GIT_STATUS_OPT_SORT_CASE_INSENSITIVELY  = (1u << 10),
-	GIT_STATUS_OPT_RENAMES_FROM_REWRITES    = (1u << 11),
-	GIT_STATUS_OPT_NO_REFRESH               = (1u << 12),
-	GIT_STATUS_OPT_UPDATE_INDEX             = (1u << 13),
+	GIT_STATUS_OPT_INCLUDE_UNTRACKED                = (1u << 0),
+	GIT_STATUS_OPT_INCLUDE_IGNORED                  = (1u << 1),
+	GIT_STATUS_OPT_INCLUDE_UNMODIFIED               = (1u << 2),
+	GIT_STATUS_OPT_EXCLUDE_SUBMODULES               = (1u << 3),
+	GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS           = (1u << 4),
+	GIT_STATUS_OPT_DISABLE_PATHSPEC_MATCH           = (1u << 5),
+	GIT_STATUS_OPT_RECURSE_IGNORED_DIRS             = (1u << 6),
+	GIT_STATUS_OPT_RENAMES_HEAD_TO_INDEX            = (1u << 7),
+	GIT_STATUS_OPT_RENAMES_INDEX_TO_WORKDIR         = (1u << 8),
+	GIT_STATUS_OPT_SORT_CASE_SENSITIVELY            = (1u << 9),
+	GIT_STATUS_OPT_SORT_CASE_INSENSITIVELY          = (1u << 10),
+	GIT_STATUS_OPT_RENAMES_FROM_REWRITES            = (1u << 11),
+	GIT_STATUS_OPT_NO_REFRESH                       = (1u << 12),
+	GIT_STATUS_OPT_UPDATE_INDEX                     = (1u << 13),
+	GIT_STATUS_OPT_INCLUDE_UNREADABLE               = (1u << 14),
+	GIT_STATUS_OPT_INCLUDE_UNREADABLE_AS_UNTRACKED  = (1u << 15),
 } git_status_opt_t;
 
 #define GIT_STATUS_OPT_DEFAULTS \
@@ -169,12 +173,16 @@ typedef enum {
  * The `pathspec` is an array of path patterns to match (using
  * fnmatch-style matching), or just an array of paths to match exactly if
  * `GIT_STATUS_OPT_DISABLE_PATHSPEC_MATCH` is specified in the flags.
+ *
+ * The `baseline` is the tree to be used for comparison to the working directory
+ * and index; defaults to HEAD.
  */
 typedef struct {
 	unsigned int      version;
 	git_status_show_t show;
 	unsigned int      flags;
 	git_strarray      pathspec;
+	git_tree          *baseline;
 } git_status_options;
 
 #define GIT_STATUS_OPTIONS_VERSION 1
@@ -278,7 +286,8 @@ GIT_EXTERN(int) git_status_foreach_ext(
  *
  * @param status_flags Output combination of git_status_t values for file
  * @param repo A repository object
- * @param path The file to retrieve status for relative to the repo workdir
+ * @param path The exact path to retrieve status for relative to the
+ * repository working directory
  * @return 0 on success, GIT_ENOTFOUND if the file is not found in the HEAD,
  *      index, and work tree, GIT_EAMBIGUOUS if `path` matches multiple files
  *      or if it refers to a folder, and -1 on other errors.

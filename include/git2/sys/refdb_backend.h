@@ -103,8 +103,9 @@ struct git_refdb_backend {
 		const git_signature *who, const char *message);
 
 	/**
-	 * Deletes the given reference from the refdb.  A refdb implementation
-	 * must provide this function.
+	 * Deletes the given reference (and if necessary its reflog)
+	 * from the refdb.  A refdb implementation must provide this
+	 * function.
 	 */
 	int (*del)(git_refdb_backend *backend, const char *ref_name, const git_oid *old_id, const char *old_target);
 
@@ -129,8 +130,8 @@ struct git_refdb_backend {
 	int (*ensure_log)(git_refdb_backend *backend, const char *refname);
 
 	/**
-	 * Frees any resources held by the refdb.  A refdb implementation may
-	 * provide this function; if it is not provided, nothing will be done.
+	 * Frees any resources held by the refdb (including the `git_refdb_backend`
+	 * itself). A refdb backend implementation must provide this function.
 	 */
 	void (*free)(git_refdb_backend *backend);
 
@@ -153,6 +154,19 @@ struct git_refdb_backend {
 	 * Remove a reflog.
 	 */
 	int (*reflog_delete)(git_refdb_backend *backend, const char *name);
+
+	/**
+	 * Lock a reference. The opaque parameter will be passed to the unlock function
+	 */
+	int (*lock)(void **payload_out, git_refdb_backend *backend, const char *refname);
+
+	/**
+	 * Unlock a reference. Only one of target or symbolic_target
+	 * will be set. success indicates whether to update the
+	 * reference or discard the lock (if it's false)
+	 */
+	int (*unlock)(git_refdb_backend *backend, void *payload, int success, int update_reflog,
+		      const git_reference *ref, const git_signature *sig, const char *message);
 };
 
 #define GIT_REFDB_BACKEND_VERSION 1
@@ -162,7 +176,7 @@ struct git_refdb_backend {
  * Initializes a `git_refdb_backend` with default values. Equivalent to
  * creating an instance with GIT_REFDB_BACKEND_INIT.
  *
- * @param opts the `git_refdb_backend` struct to initialize
+ * @param backend the `git_refdb_backend` struct to initialize
  * @param version Version of struct; pass `GIT_REFDB_BACKEND_VERSION`
  * @return Zero on success; -1 on failure.
  */

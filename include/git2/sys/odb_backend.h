@@ -53,10 +53,11 @@ struct git_odb_backend {
 		git_odb_backend *, const git_oid *, const void *, size_t, git_otype);
 
 	int (* writestream)(
-		git_odb_stream **, git_odb_backend *, size_t, git_otype);
+		git_odb_stream **, git_odb_backend *, git_off_t, git_otype);
 
 	int (* readstream)(
-		git_odb_stream **, git_odb_backend *, const git_oid *);
+		git_odb_stream **, size_t *, git_otype *,
+		git_odb_backend *, const git_oid *);
 
 	int (* exists)(
 		git_odb_backend *, const git_oid *);
@@ -83,6 +84,21 @@ struct git_odb_backend {
 		git_odb_writepack **, git_odb_backend *, git_odb *odb,
 		git_transfer_progress_cb progress_cb, void *progress_payload);
 
+	/**
+	 * "Freshens" an already existing object, updating its last-used
+	 * time.  This occurs when `git_odb_write` was called, but the
+	 * object already existed (and will not be re-written).  The
+	 * underlying implementation may want to update last-used timestamps.
+	 *
+	 * If callers implement this, they should return `0` if the object
+	 * exists and was freshened, and non-zero otherwise.
+	 */
+	int (* freshen)(git_odb_backend *, const git_oid *);
+
+	/**
+	 * Frees any resources held by the odb (including the `git_odb_backend`
+	 * itself). An odb backend implementation must provide this function.
+	 */
 	void (* free)(git_odb_backend *);
 };
 
@@ -93,7 +109,7 @@ struct git_odb_backend {
  * Initializes a `git_odb_backend` with default values. Equivalent to
  * creating an instance with GIT_ODB_BACKEND_INIT.
  *
- * @param opts the `git_odb_backend` struct to initialize.
+ * @param backend the `git_odb_backend` struct to initialize.
  * @param version Version the struct; pass `GIT_ODB_BACKEND_VERSION`
  * @return Zero on success; -1 on failure.
  */

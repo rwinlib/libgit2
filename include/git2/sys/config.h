@@ -53,19 +53,34 @@ struct git_config_iterator {
  */
 struct git_config_backend {
 	unsigned int version;
+	/** True if this backend is for a snapshot */
+	int readonly;
 	struct git_config *cfg;
 
 	/* Open means open the file/database and parse if necessary */
-	int (*open)(struct git_config_backend *, git_config_level_t level);
-	int (*get)(struct git_config_backend *, const char *key, const git_config_entry **entry);
+	int (*open)(struct git_config_backend *, git_config_level_t level, const git_repository *repo);
+	int (*get)(struct git_config_backend *, const char *key, git_config_entry **entry);
 	int (*set)(struct git_config_backend *, const char *key, const char *value);
 	int (*set_multivar)(git_config_backend *cfg, const char *name, const char *regexp, const char *value);
 	int (*del)(struct git_config_backend *, const char *key);
 	int (*del_multivar)(struct git_config_backend *, const char *key, const char *regexp);
 	int (*iterator)(git_config_iterator **, struct git_config_backend *);
-	int (*refresh)(struct git_config_backend *);
 	/** Produce a read-only version of this backend */
 	int (*snapshot)(struct git_config_backend **, struct git_config_backend *);
+	/**
+	 * Lock this backend.
+	 *
+	 * Prevent any writes to the data store backing this
+	 * backend. Any updates must not be visible to any other
+	 * readers.
+	 */
+	int (*lock)(struct git_config_backend *);
+	/**
+	 * Unlock the data store backing this backend. If success is
+	 * true, the changes should be committed, otherwise rolled
+	 * back.
+	 */
+	int (*unlock)(struct git_config_backend *, int success);
 	void (*free)(struct git_config_backend *);
 };
 #define GIT_CONFIG_BACKEND_VERSION 1
@@ -75,7 +90,7 @@ struct git_config_backend {
  * Initializes a `git_config_backend` with default values. Equivalent to
  * creating an instance with GIT_CONFIG_BACKEND_INIT.
  *
- * @param opts the `git_config_backend` struct to initialize.
+ * @param backend the `git_config_backend` struct to initialize.
  * @param version Version of struct; pass `GIT_CONFIG_BACKEND_VERSION`
  * @return Zero on success; -1 on failure.
  */
@@ -96,6 +111,8 @@ GIT_EXTERN(int) git_config_init_backend(
  * @param cfg the configuration to add the file to
  * @param file the configuration file (backend) to add
  * @param level the priority level of the backend
+ * @param repo optional repository to allow parsing of
+ *  conditional includes
  * @param force if a config file already exists for the given
  *  priority level, replace it
  * @return 0 on success, GIT_EEXISTS when adding more than one file
@@ -105,6 +122,7 @@ GIT_EXTERN(int) git_config_add_backend(
 	git_config *cfg,
 	git_config_backend *file,
 	git_config_level_t level,
+	const git_repository *repo,
 	int force);
 
 /** @} */

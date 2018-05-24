@@ -21,33 +21,36 @@
 GIT_BEGIN_DECL
 
 /**
- * Sort the repository contents in no particular ordering;
- * this sorting is arbitrary, implementation-specific
- * and subject to change at any time.
- * This is the default sorting for new walkers.
+ * Flags to specify the sorting which a revwalk should perform.
  */
-#define GIT_SORT_NONE			(0)
+typedef enum {
+	/**
+	 * Sort the output with the same default time-order method from git.
+	 * This is the default sorting for new walkers.
+	 */
+	GIT_SORT_NONE = 0,
 
-/**
- * Sort the repository contents in topological order
- * (parents before children); this sorting mode
- * can be combined with time sorting.
- */
-#define GIT_SORT_TOPOLOGICAL (1 << 0)
+	/**
+	 * Sort the repository contents in topological order (parents before
+	 * children); this sorting mode can be combined with time sorting to
+	 * produce git's "time-order".
+	 */
+	GIT_SORT_TOPOLOGICAL = 1 << 0,
 
-/**
- * Sort the repository contents by commit time;
- * this sorting mode can be combined with
- * topological sorting.
- */
-#define GIT_SORT_TIME			(1 << 1)
+	/**
+	 * Sort the repository contents by commit time;
+	 * this sorting mode can be combined with
+	 * topological sorting.
+	 */
+	GIT_SORT_TIME = 1 << 1,
 
-/**
- * Iterate through the repository contents in reverse
- * order; this sorting mode can be combined with
- * any of the above.
- */
-#define GIT_SORT_REVERSE		(1 << 2)
+	/**
+	 * Iterate through the repository contents in reverse
+	 * order; this sorting mode can be combined with
+	 * any of the above.
+	 */
+	GIT_SORT_REVERSE = 1 << 2,
+} git_sort_t;
 
 /**
  * Allocate a new revision walker to iterate through a repo.
@@ -85,15 +88,17 @@ GIT_EXTERN(int) git_revwalk_new(git_revwalk **out, git_repository *repo);
 GIT_EXTERN(void) git_revwalk_reset(git_revwalk *walker);
 
 /**
- * Mark a commit to start traversal from.
+ * Add a new root for the traversal
  *
- * The given OID must belong to a committish on the walked
+ * The pushed commit will be marked as one of the roots from which to
+ * start the walk. This commit may not be walked if it or a child is
+ * hidden.
+ *
+ * At least one commit must be pushed onto the walker before a walk
+ * can be started.
+ *
+ * The given id must belong to a committish on the walked
  * repository.
- *
- * The given commit will be used as one of the roots
- * when starting the revision walk. At least one commit
- * must be pushed onto the walker before a walk can
- * be started.
  *
  * @param walk the walker being used for the traversal.
  * @param id the oid of the commit to start from.
@@ -130,7 +135,7 @@ GIT_EXTERN(int) git_revwalk_push_head(git_revwalk *walk);
 /**
  * Mark a commit (and its ancestors) uninteresting for the output.
  *
- * The given OID must belong to a committish on the walked
+ * The given id must belong to a committish on the walked
  * repository.
  *
  * The resolved commit and all its parents will be hidden from the

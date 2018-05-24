@@ -43,12 +43,6 @@ GIT_BEGIN_DECL
  *
  * @param force Overwrite existing branch.
  *
- * @param signature The identity that will used to populate the reflog entry
- *
- * @param log_message The one line long message to be appended to the reflog.
- * If NULL, the default is "Branch: created"; if you want something more
- * useful, provide a message.
- *
  * @return 0, GIT_EINVALIDSPEC or an error code.
  * A proper reference is written in the refs/heads namespace
  * pointing to the provided target commit.
@@ -58,9 +52,25 @@ GIT_EXTERN(int) git_branch_create(
 	git_repository *repo,
 	const char *branch_name,
 	const git_commit *target,
-	int force,
-	const git_signature *signature,
-	const char *log_message);
+	int force);
+
+/**
+ * Create a new branch pointing at a target commit
+ *
+ * This behaves like `git_branch_create()` but takes an annotated
+ * commit, which lets you specify which extended sha syntax string was
+ * specified by a user, allowing for more exact reflog messages.
+ *
+ * See the documentation for `git_branch_create()`.
+ *
+ * @see git_branch_create
+ */
+GIT_EXTERN(int) git_branch_create_from_annotated(
+	git_reference **ref_out,
+	git_repository *repository,
+	const char *branch_name,
+	const git_annotated_commit *commit,
+	int force);
 
 /**
  * Delete an existing branch reference.
@@ -123,19 +133,13 @@ GIT_EXTERN(void) git_branch_iterator_free(git_branch_iterator *iter);
  *
  * @param force Overwrite existing branch.
  *
- * @param signature The identity that will used to populate the reflog entry
- *
- * @param log_message The one line long message to be appended to the reflog
- *
  * @return 0 on success, GIT_EINVALIDSPEC or an error code.
  */
 GIT_EXTERN(int) git_branch_move(
 	git_reference **out,
 	git_reference *branch,
 	const char *new_branch_name,
-	int force,
-	const git_signature *signature,
-	const char *log_message);
+	int force);
 
 /**
  * Lookup a branch by its name in a repository.
@@ -242,9 +246,21 @@ GIT_EXTERN(int) git_branch_is_head(
 	const git_reference *branch);
 
 /**
+ * Determine if the current branch is checked out in any linked
+ * repository.
+ *
+ * @param branch Reference to the branch.
+ *
+ * @return 1 if branch is checked out, 0 if it isn't,
+ * error code otherwise.
+ */
+GIT_EXTERN(int) git_branch_is_checked_out(
+	const git_reference *branch);
+
+/**
  * Return the name of remote that the remote tracking branch belongs to.
  *
- * @param out Pointer to the user-allocated git_buf which will be filled iwth the name of the remote.
+ * @param out Pointer to the user-allocated git_buf which will be filled with the name of the remote.
  *
  * @param repo The repository where the branch lives.
  *
@@ -259,6 +275,17 @@ GIT_EXTERN(int) git_branch_remote_name(
 	git_buf *out,
 	git_repository *repo,
 	const char *canonical_branch_name);
+
+
+/**
+ * Retrieve the name fo the upstream remote of a local branch
+ *
+ * @param buf the buffer into which to write the name
+ * @param repo the repository in which to look
+ * @param refname the full name of the branch
+ * @return 0 or an error code
+ */
+ GIT_EXTERN(int) git_branch_upstream_remote(git_buf *buf, git_repository *repo, const char *refname);
 
 /** @} */
 GIT_END_DECL

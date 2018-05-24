@@ -39,7 +39,7 @@ GIT_EXTERN(int) git_odb_backend_pack(git_odb_backend **out, const char *objects_
  * @param out location to store the odb backend pointer
  * @param objects_dir the Git repository's objects directory
  * @param compression_level zlib compression level to use
- * @param do_fsync whether to do an fsync() after writing (currently ignored)
+ * @param do_fsync whether to do an fsync() after writing
  * @param dir_mode permissions to use creating a directory or 0 for defaults
  * @param file_mode permissions to use creating a file or 0 for defaults
  *
@@ -86,8 +86,8 @@ struct git_odb_stream {
 	unsigned int mode;
 	void *hash_ctx;
 
-	size_t declared_size;
-	size_t received_bytes;
+	git_off_t declared_size;
+	git_off_t received_bytes;
 
 	/**
 	 * Write at most `len` bytes into `buffer` and advance the stream.

@@ -24,9 +24,9 @@ GIT_BEGIN_DECL
 
 /** Time structure used in a git index entry */
 typedef struct {
-	git_time_t seconds;
+	int32_t seconds;
 	/* nsec should not be stored as time_t compatible */
-	unsigned int nanoseconds;
+	uint32_t nanoseconds;
 } git_index_time;
 
 /**
@@ -44,22 +44,27 @@ typedef struct {
  * accessed via the later `GIT_IDXENTRY_...` bitmasks below.  Some of
  * these flags are read from and written to disk, but some are set aside
  * for in-memory only reference.
+ *
+ * Note that the time and size fields are truncated to 32 bits. This
+ * is enough to detect changes, which is enough for the index to
+ * function as a cache, but it should not be taken as an authoritative
+ * source for that data.
  */
 typedef struct git_index_entry {
 	git_index_time ctime;
 	git_index_time mtime;
 
-	unsigned int dev;
-	unsigned int ino;
-	unsigned int mode;
-	unsigned int uid;
-	unsigned int gid;
-	git_off_t file_size;
+	uint32_t dev;
+	uint32_t ino;
+	uint32_t mode;
+	uint32_t uid;
+	uint32_t gid;
+	uint32_t file_size;
 
 	git_oid id;
 
-	unsigned short flags;
-	unsigned short flags_extended;
+	uint16_t flags;
+	uint16_t flags_extended;
 
 	const char *path;
 } git_index_entry;
@@ -75,6 +80,9 @@ typedef struct git_index_entry {
 #define GIT_IDXENTRY_STAGEMASK (0x3000)
 #define GIT_IDXENTRY_STAGESHIFT 12
 
+/**
+ * Flags for index entries
+ */
 typedef enum {
 	GIT_IDXENTRY_EXTENDED  = (0x4000),
 	GIT_IDXENTRY_VALID     = (0x8000),
@@ -146,13 +154,27 @@ typedef enum {
 	GIT_INDEX_ADD_CHECK_PATHSPEC = (1u << 2),
 } git_index_add_option_t;
 
-/**
- * Match any index stage.
- *
- * Some index APIs take a stage to match; pass this value to match
- * any entry matching the path regardless of stage.
- */
-#define GIT_INDEX_STAGE_ANY -1
+typedef enum {
+	/**
+	 * Match any index stage.
+	 *
+	 * Some index APIs take a stage to match; pass this value to match
+	 * any entry matching the path regardless of stage.
+	 */
+	GIT_INDEX_STAGE_ANY = -1,
+
+	/** A normal staged file in the index. */
+	GIT_INDEX_STAGE_NORMAL = 0,
+
+	/** The ancestor side of a conflict. */
+	GIT_INDEX_STAGE_ANCESTOR = 1,
+
+	/** The "ours" side of a conflict. */
+	GIT_INDEX_STAGE_OURS = 2,
+
+	/** The "theirs" side of a conflict. */
+	GIT_INDEX_STAGE_THEIRS = 3,
+} git_index_stage_t;
 
 /** @name Index File Functions
  *
@@ -230,6 +252,31 @@ GIT_EXTERN(int) git_index_caps(const git_index *index);
 GIT_EXTERN(int) git_index_set_caps(git_index *index, int caps);
 
 /**
+ * Get index on-disk version.
+ *
+ * Valid return values are 2, 3, or 4.  If 3 is returned, an index
+ * with version 2 may be written instead, if the extension data in
+ * version 3 is not necessary.
+ *
+ * @param index An existing index object
+ * @return the index version
+ */
+GIT_EXTERN(unsigned int) git_index_version(git_index *index);
+
+/**
+ * Set index on-disk version.
+ *
+ * Valid values are 2, 3, or 4.  If 2 is given, git_index_write may
+ * write an index with version 3 instead, if necessary to accurately
+ * represent the index.
+ *
+ * @param index An existing index object
+ * @param version The new version number
+ * @return 0 on success, -1 on failure
+ */
+GIT_EXTERN(int) git_index_set_version(git_index *index, unsigned int version);
+
+/**
  * Update the contents of an existing index object in memory by reading
  * from the hard disk.
  *
@@ -264,6 +311,18 @@ GIT_EXTERN(int) git_index_write(git_index *index);
  * @return path to index file or NULL for in-memory index
  */
 GIT_EXTERN(const char *) git_index_path(const git_index *index);
+
+/**
+ * Get the checksum of the index
+ *
+ * This checksum is the SHA-1 hash over the index file (except the
+ * last 20 bytes which are the checksum itself). In cases where the
+ * index does not exist on-disk, it will be zeroed out.
+ *
+ * @param index an existing index object
+ * @return a pointer to the checksum of the index
+ */
+GIT_EXTERN(const git_oid *) git_index_checksum(git_index *index);
 
 /**
  * Read a tree into the index file with stats
@@ -422,6 +481,15 @@ GIT_EXTERN(int) git_index_add(git_index *index, const git_index_entry *source_en
  */
 GIT_EXTERN(int) git_index_entry_stage(const git_index_entry *entry);
 
+/**
+ * Return whether the given index entry is a conflict (has a high stage
+ * entry).  This is simply shorthand for `git_index_entry_stage > 0`.
+ *
+ * @param entry The entry
+ * @return 1 if the entry is a conflict entry, 0 otherwise
+ */
+GIT_EXTERN(int) git_index_entry_is_conflict(const git_index_entry *entry);
+
 /**@}*/
 
 /** @name Workdir Index Entry Functions
@@ -454,6 +522,38 @@ GIT_EXTERN(int) git_index_entry_stage(const git_index_entry *entry);
 GIT_EXTERN(int) git_index_add_bypath(git_index *index, const char *path);
 
 /**
+ * Add or update an index entry from a buffer in memory
+ *
+ * This method will create a blob in the repository that owns the
+ * index and then add the index entry to the index.  The `path` of the
+ * entry represents the position of the blob relative to the
+ * repository's root folder.
+ *
+ * If a previous index entry exists that has the same path as the
+ * given 'entry', it will be replaced.  Otherwise, the 'entry' will be
+ * added. The `id` and the `file_size` of the 'entry' are updated with the
+ * real value of the blob.
+ *
+ * This forces the file to be added to the index, not looking
+ * at gitignore rules.  Those rules can be evaluated through
+ * the git_status APIs (in status.h) before calling this.
+ *
+ * If this file currently is the result of a merge conflict, this
+ * file will no longer be marked as conflicting.  The data about
+ * the conflict will be moved to the "resolve undo" (REUC) section.
+ *
+ * @param index an existing index object
+ * @param entry filename to add
+ * @param buffer data to be written into the blob
+ * @param len length of the data
+ * @return 0 or an error code
+ */
+GIT_EXTERN(int) git_index_add_frombuffer(
+	git_index *index,
+	const git_index_entry *entry,
+	const void *buffer, size_t len);
+
+/**
  * Remove an index entry corresponding to a file on disk
  *
  * The file `path` must be relative to the repository's
@@ -475,15 +575,16 @@ GIT_EXTERN(int) git_index_remove_bypath(git_index *index, const char *path);
  * This method will fail in bare index instances.
  *
  * The `pathspec` is a list of file names or shell glob patterns that will
- * matched against files in the repository's working directory.  Each file
- * that matches will be added to the index (either updating an existing
- * entry or adding a new entry).  You can disable glob expansion and force
- * exact matching with the `GIT_INDEX_ADD_DISABLE_PATHSPEC_MATCH` flag.
+ * be matched against files in the repository's working directory.  Each
+ * file that matches will be added to the index (either updating an
+ * existing entry or adding a new entry).  You can disable glob expansion
+ * and force exact matching with the `GIT_INDEX_ADD_DISABLE_PATHSPEC_MATCH`
+ * flag.
  *
  * Files that are ignored will be skipped (unlike `git_index_add_bypath`).
  * If a file is already tracked in the index, then it *will* be updated
- * even if it is ignored.  Pass the `GIT_INDEX_ADD_FORCE` flag to
- * skip the checking of ignore rules.
+ * even if it is ignored.  Pass the `GIT_INDEX_ADD_FORCE` flag to skip
+ * the checking of ignore rules.
  *
  * To emulate `git add -A` and generate an error if the pathspec contains
  * the exact path of an ignored file (when not using FORCE), add the
@@ -582,6 +683,17 @@ GIT_EXTERN(int) git_index_update_all(
  */
 GIT_EXTERN(int) git_index_find(size_t *at_pos, git_index *index, const char *path);
 
+/**
+ * Find the first position of any entries matching a prefix. To find the first position
+ * of a path inside a given folder, suffix the prefix with a '/'.
+ *
+ * @param at_pos the address to which the position of the index entry is written (optional)
+ * @param index an existing index object
+ * @param prefix the prefix to search for
+ * @return 0 with valid value in at_pos; an error code otherwise
+ */
+GIT_EXTERN(int) git_index_find_prefix(size_t *at_pos, git_index *index, const char *prefix);
+
 /**@}*/
 
 /** @name Conflict Index Entry Functions
@@ -591,7 +703,8 @@ GIT_EXTERN(int) git_index_find(size_t *at_pos, git_index *index, const char *pat
 /**@{*/
 
 /**
- * Add or update index entries to represent a conflict
+ * Add or update index entries to represent a conflict.  Any staged
+ * entries that exist at the given paths will be removed.
  *
  * The entries are the entries from the tree included in the merge.  Any
  * entry may be null to indicate that that file was not present in the
