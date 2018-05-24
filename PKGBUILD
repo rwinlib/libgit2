@@ -28,18 +28,18 @@ prepare() {
 build() {
   [[ -d "${srcdir}"/build-${MINGW_CHOST} ]] && rm -rf "${srcdir}"/build-${MINGW_CHOST}
   mkdir -p "${srcdir}"/build-${MINGW_CHOST} && cd "${srcdir}"/build-${MINGW_CHOST}
-
+  rm ../${_realname}-${pkgver}/src/win32/thread.c
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
   ${MINGW_PREFIX}/bin/cmake.exe \
     -G"MSYS Makefiles" \
     -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON \
     -DBUILD_SHARED_LIBS=OFF \
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
-    -DCMAKE_C_FLAGS="-DCURL_STATICLIB -DDllMain=DllMainOld" \
+    -DCMAKE_C_FLAGS="-DCURL_STATICLIB" \
     -DCMAKE_EXE_LINKER_FLAGS="-L${MINGW_PREFIX}/lib" \
     -DPKG_CONFIG_WITHOUT_PREFIX=ON \
-    -DTHREADSAFE=ON \
-    -DWINHTTP=OFF \
+    -DWINHTTP=ON \
+    -DTHREADSAFE=OFF \
     ../${_realname}-${pkgver}
 
   make VERBOSE=1
