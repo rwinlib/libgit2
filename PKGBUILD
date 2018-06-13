@@ -3,7 +3,7 @@
 _realname=libgit2
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=0.27.0
+pkgver=0.27.2
 pkgrel=1
 pkgdesc='A linkable library for Git (mingw-w64)'
 arch=('any')
@@ -16,13 +16,16 @@ depends=("${MINGW_PACKAGE_PREFIX}-curl"
          "${MINGW_PACKAGE_PREFIX}-openssl"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cmake" "${MINGW_PACKAGE_PREFIX}-gcc")
-source=(${_realname}-${pkgver}.tar.gz::"https://github.com/libgit2/libgit2/archive/v${pkgver}.tar.gz")
+source=(${_realname}-${pkgver}.tar.gz::"https://github.com/libgit2/libgit2/archive/v${pkgver}.tar.gz"
+        enumfix.patch)
 noextract=(${_realname}-${pkgver}.tar.gz)
-sha256sums=('545b0458292c786aba334f1bf1c8f73600ae73dd7205a7bb791a187ee48ab8d2')
+sha256sums=('ffacdbd5588aeb03e98e3866a7e2ceace468723a439bdc9bb01362fe140fa9e5'
+            'SKIP')
 
 prepare() {
   tar --exclude tests/resources/testrepo-worktree/link_to_new.txt -zxf ${_realname}-${pkgver}.tar.gz
   cd ${_realname}-${pkgver}
+  patch -p1 -i ${srcdir}/enumfix.patch
 }
 
 build() {
