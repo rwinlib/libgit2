@@ -9,6 +9,8 @@
 
 #include "common.h"
 #include "types.h"
+#include "strarray.h"
+#include "diff.h"
 
 /**
  * @file git2/status.h
@@ -58,7 +60,7 @@ typedef enum {
  *
  * `payload` is the value you passed to the foreach function as payload.
  */
-typedef int (*git_status_cb)(
+typedef int GIT_CALLBACK(git_status_cb)(
 	const char *path, unsigned int status_flags, void *payload);
 
 /**
@@ -161,27 +163,36 @@ typedef enum {
 /**
  * Options to control how `git_status_foreach_ext()` will issue callbacks.
  *
- * This structure is set so that zeroing it out will give you relatively
- * sane defaults.
+ * Initialize with `GIT_STATUS_OPTIONS_INIT`. Alternatively, you can
+ * use `git_status_options_init`.
  *
- * The `show` value is one of the `git_status_show_t` constants that
- * control which files to scan and in what order.
- *
- * The `flags` value is an OR'ed combination of the `git_status_opt_t`
- * values above.
- *
- * The `pathspec` is an array of path patterns to match (using
- * fnmatch-style matching), or just an array of paths to match exactly if
- * `GIT_STATUS_OPT_DISABLE_PATHSPEC_MATCH` is specified in the flags.
- *
- * The `baseline` is the tree to be used for comparison to the working directory
- * and index; defaults to HEAD.
  */
 typedef struct {
-	unsigned int      version;
+	unsigned int      version; /**< The version */
+
+	/**
+	 * The `show` value is one of the `git_status_show_t` constants that
+	 * control which files to scan and in what order.
+	 */
 	git_status_show_t show;
+
+	/**
+	 * The `flags` value is an OR'ed combination of the `git_status_opt_t`
+	 * values above.
+	 */
 	unsigned int      flags;
+
+	/**
+	 * The `pathspec` is an array of path patterns to match (using
+	 * fnmatch-style matching), or just an array of paths to match exactly if
+	 * `GIT_STATUS_OPT_DISABLE_PATHSPEC_MATCH` is specified in the flags.
+	 */
 	git_strarray      pathspec;
+
+	/**
+	 * The `baseline` is the tree to be used for comparison to the working directory
+	 * and index; defaults to HEAD.
+	 */
 	git_tree          *baseline;
 } git_status_options;
 
@@ -189,14 +200,16 @@ typedef struct {
 #define GIT_STATUS_OPTIONS_INIT {GIT_STATUS_OPTIONS_VERSION}
 
 /**
- * Initializes a `git_status_options` with default values. Equivalent to
- * creating an instance with GIT_STATUS_OPTIONS_INIT.
+ * Initialize git_status_options structure
  *
- * @param opts The `git_status_options` instance to initialize.
- * @param version Version of struct; pass `GIT_STATUS_OPTIONS_VERSION`
+ * Initializes a `git_status_options` with default values. Equivalent to
+ * creating an instance with `GIT_STATUS_OPTIONS_INIT`.
+ *
+ * @param opts The `git_status_options` struct to initialize.
+ * @param version The struct version; pass `GIT_STATUS_OPTIONS_VERSION`.
  * @return Zero on success; -1 on failure.
  */
-GIT_EXTERN(int) git_status_init_options(
+GIT_EXTERN(int) git_status_options_init(
 	git_status_options *opts,
 	unsigned int version);
 

@@ -173,6 +173,34 @@ GIT_EXTERN(const git_signature *) git_commit_committer(const git_commit *commit)
 GIT_EXTERN(const git_signature *) git_commit_author(const git_commit *commit);
 
 /**
+ * Get the committer of a commit, using the mailmap to map names and email
+ * addresses to canonical real names and email addresses.
+ *
+ * Call `git_signature_free` to free the signature.
+ *
+ * @param out a pointer to store the resolved signature.
+ * @param commit a previously loaded commit.
+ * @param mailmap the mailmap to resolve with. (may be NULL)
+ * @return 0 or an error code
+ */
+GIT_EXTERN(int) git_commit_committer_with_mailmap(
+	git_signature **out, const git_commit *commit, const git_mailmap *mailmap);
+
+/**
+ * Get the author of a commit, using the mailmap to map names and email
+ * addresses to canonical real names and email addresses.
+ *
+ * Call `git_signature_free` to free the signature.
+ *
+ * @param out a pointer to store the resolved signature.
+ * @param commit a previously loaded commit.
+ * @param mailmap the mailmap to resolve with. (may be NULL)
+ * @return 0 or an error code
+ */
+GIT_EXTERN(int) git_commit_author_with_mailmap(
+	git_signature **out, const git_commit *commit, const git_mailmap *mailmap);
+
+/**
  * Get the full raw text of the commit header.
  *
  * @param commit a previously loaded commit
@@ -268,8 +296,8 @@ GIT_EXTERN(int) git_commit_header_field(git_buf *out, const git_commit *commit, 
  * Extract the signature from a commit
  *
  * If the id is not for a commit, the error class will be
- * `GITERR_INVALID`. If the commit does not have a signature, the
- * error class will be `GITERR_OBJECT`.
+ * `GIT_ERROR_INVALID`. If the commit does not have a signature, the
+ * error class will be `GIT_ERROR_OBJECT`.
  *
  * @param signature the signature block; existing content will be
  * overwritten
@@ -452,7 +480,8 @@ GIT_EXTERN(int) git_commit_create_buffer(
  *
  * @param out the resulting commit id
  * @param commit_content the content of the unsigned commit object
- * @param signature the signature to add to the commit
+ * @param signature the signature to add to the commit. Leave `NULL`
+ * to create a commit without adding a signature field.
  * @param signature_field which header field should contain this
  * signature. Leave `NULL` for the default of "gpgsig"
  * @return 0 or an error code
@@ -472,6 +501,27 @@ GIT_EXTERN(int) git_commit_create_with_signature(
  * @param source Original commit to copy
  */
 GIT_EXTERN(int) git_commit_dup(git_commit **out, git_commit *source);
+
+/**
+ * Commit signing callback.
+ *
+ * The callback will be called with the commit content, giving a user an
+ * opportunity to sign the commit content. The signature_field
+ * buf may be left empty to specify the default field "gpgsig".
+ *
+ * Signatures can take the form of any string, and can be created on an arbitrary
+ * header field. Signatures are most commonly used for verifying authorship of a
+ * commit using GPG or a similar cryptographically secure signing algorithm.
+ * See https://git-scm.com/book/en/v2/Git-Tools-Signing-Your-Work for more
+ * details.
+ *
+ * When the callback:
+ * - returns GIT_PASSTHROUGH, no signature will be added to the commit.
+ * - returns < 0, commit creation will be aborted.
+ * - returns GIT_OK, the signature parameter is expected to be filled.
+ */
+typedef int (*git_commit_signing_cb)(
+	git_buf *signature, git_buf *signature_field, const char *commit_content, void *payload);
 
 /** @} */
 GIT_END_DECL

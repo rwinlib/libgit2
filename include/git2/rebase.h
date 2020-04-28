@@ -11,6 +11,9 @@
 #include "types.h"
 #include "oid.h"
 #include "annotated_commit.h"
+#include "merge.h"
+#include "checkout.h"
+#include "commit.h"
 
 /**
  * @file git2/rebase.h
@@ -70,6 +73,21 @@ typedef struct {
 	 * `abort` to match git semantics.
 	 */
 	git_checkout_options checkout_options;
+
+	/**
+	 * If provided, this will be called with the commit content, allowing
+	 * a signature to be added to the rebase commit. Can be skipped with
+	 * GIT_PASSTHROUGH. If GIT_PASSTHROUGH is returned, a commit will be made
+	 * without a signature.
+	 * This field is only used when performing git_rebase_commit.
+	 */
+	git_commit_signing_cb signing_cb;
+
+	/**
+	 * This will be passed to each of the callbacks in this struct
+	 * as the last parameter.
+	 */
+	void *payload;
 } git_rebase_options;
 
 /**
@@ -116,7 +134,7 @@ typedef enum {
 #define GIT_REBASE_OPTIONS_VERSION 1
 #define GIT_REBASE_OPTIONS_INIT \
 	{ GIT_REBASE_OPTIONS_VERSION, 0, 0, NULL, GIT_MERGE_OPTIONS_INIT, \
-	  GIT_CHECKOUT_OPTIONS_INIT}
+	  GIT_CHECKOUT_OPTIONS_INIT, NULL, NULL }
 
 /** Indicates that a rebase operation is not (yet) in progress. */
 #define GIT_REBASE_NO_OPERATION SIZE_MAX
@@ -145,15 +163,16 @@ typedef struct {
 } git_rebase_operation;
 
 /**
- * Initializes a `git_rebase_options` with default values. Equivalent to
- * creating an instance with GIT_REBASE_OPTIONS_INIT.
+ * Initialize git_rebase_options structure
  *
- * @param opts the `git_rebase_options` instance to initialize.
- * @param version the version of the struct; you should pass
- *        `GIT_REBASE_OPTIONS_VERSION` here.
+ * Initializes a `git_rebase_options` with default values. Equivalent to
+ * creating an instance with `GIT_REBASE_OPTIONS_INIT`.
+ *
+ * @param opts The `git_rebase_options` struct to initialize.
+ * @param version The struct version; pass `GIT_REBASE_OPTIONS_VERSION`.
  * @return Zero on success; -1 on failure.
  */
-GIT_EXTERN(int) git_rebase_init_options(
+GIT_EXTERN(int) git_rebase_options_init(
 	git_rebase_options *opts,
 	unsigned int version);
 
@@ -195,6 +214,34 @@ GIT_EXTERN(int) git_rebase_open(
 	git_rebase **out,
 	git_repository *repo,
 	const git_rebase_options *opts);
+
+/**
+ * Gets the original `HEAD` ref name for merge rebases.
+ *
+ * @return The original `HEAD` ref name
+ */
+GIT_EXTERN(const char *) git_rebase_orig_head_name(git_rebase *rebase);
+
+/**
+ * Gets the original `HEAD` id for merge rebases.
+ *
+ * @return The original `HEAD` id
+ */
+GIT_EXTERN(const git_oid *) git_rebase_orig_head_id(git_rebase *rebase);
+
+/**
+ * Gets the `onto` ref name for merge rebases.
+ *
+ * @return The `onto` ref name
+ */
+GIT_EXTERN(const char *) git_rebase_onto_name(git_rebase *rebase);
+
+/**
+ * Gets the `onto` id for merge rebases.
+ *
+ * @return The `onto` id
+ */
+GIT_EXTERN(const git_oid *) git_rebase_onto_id(git_rebase *rebase);
 
 /**
  * Gets the count of rebase operations that are to be applied.
