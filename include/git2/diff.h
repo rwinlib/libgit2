@@ -170,7 +170,8 @@ typedef enum {
 	GIT_DIFF_SHOW_BINARY = (1u << 30),
 
 	/** Ignore blank lines */
-	GIT_DIFF_IGNORE_BLANK_LINES = (1u << 31),
+	/* Jeroen: commented out for -pedantic compatibility */
+	//GIT_DIFF_IGNORE_BLANK_LINES = (1u << 31),
 
 } git_diff_option_t;
 
