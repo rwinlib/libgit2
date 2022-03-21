@@ -1,0 +1,11 @@
+prefix="/ucrt64"
+libdir="/ucrt64/lib"
+includedir="/ucrt64/include"
+
+Name: libgit2
+Description: The git library, take 2
+Version: 1.4.0
+Libs: -L${libdir} -lgit2
+Libs.private: -LD:/a/_temp/msys64/ucrt64/lib -lssh2 -lcrypt32 -lgdi32 -lws2_32 -lssl -lcrypto -lz -lrpcrt4 -lole32 -LD:/a/_temp/msys64/ucrt64/lib -liconv
+Requires.private: zlib
+Cflags: -I${includedir} 
