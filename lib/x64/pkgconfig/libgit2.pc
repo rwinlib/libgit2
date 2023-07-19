@@ -4,8 +4,8 @@ includedir="/ucrt64/include"
 
 Name: libgit2
 Description: The git library, take 2
-Version: 1.4.0
+Version: 1.7.0
 Libs: -L${libdir} -lgit2
-Libs.private: -L/ucrt64/lib -lssh2 -lssl -lcrypto -lws2_32 -lgdi32 -lcrypt32 -lz -lrpcrt4 -lole32 -LD:/a/_temp/msys64/ucrt64/lib -liconv
+Libs.private: -lrpcrt4 -lcrypt32 -lole32 -lsecur32 -L/ucrt64/lib -lssh2 -lssl -lcrypto -lws2_32 -lgdi32 -lz -LD:/a/_temp/msys64/ucrt64/lib -liconv
 Requires.private: zlib
 Cflags: -I${includedir} 
